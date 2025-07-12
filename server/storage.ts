@@ -42,21 +42,38 @@ export class MemStorage implements IStorage {
   }
 
   private initializeQuotes() {
-    try {
-      const quotesPath = path.join(__dirname, 'data', 'quotes.json');
-      const quotesData = fs.readFileSync(quotesPath, 'utf-8');
-      const initialQuotes: Omit<Quote, 'id'>[] = JSON.parse(quotesData);
+    // Try multiple possible paths for the quotes file
+    const possiblePaths = [
+      path.join(__dirname, 'data', 'quotes.json'),
+      path.join(process.cwd(), 'server', 'data', 'quotes.json'),
+      path.join(process.cwd(), 'dist', 'data', 'quotes.json'),
+      './server/data/quotes.json',
+      './data/quotes.json'
+    ];
 
-      initialQuotes.forEach((quote) => {
-        const id = this.currentQuoteId++;
-        this.quotes.set(id, { ...quote, id });
-      });
-      
-      console.log(`Loaded ${initialQuotes.length} quotes from JSON file`);
-    } catch (error) {
-      console.error('Failed to load quotes from JSON file:', error);
-      console.log('Continuing with empty quotes collection');
+    for (const quotesPath of possiblePaths) {
+      try {
+        if (fs.existsSync(quotesPath)) {
+          const quotesData = fs.readFileSync(quotesPath, 'utf-8');
+          const initialQuotes: Omit<Quote, 'id'>[] = JSON.parse(quotesData);
+
+          initialQuotes.forEach((quote) => {
+            const id = this.currentQuoteId++;
+            this.quotes.set(id, { ...quote, id });
+          });
+          
+          console.log(`Loaded ${initialQuotes.length} quotes from: ${quotesPath}`);
+          return; // Successfully loaded, exit the function
+        }
+      } catch (error) {
+        console.warn(`Failed to load from ${quotesPath}:`, error);
+        continue; // Try the next path
+      }
     }
+    
+    console.error('Could not find quotes.json in any expected location');
+    console.log('Tried paths:', possiblePaths);
+    console.log('Continuing with empty quotes collection');
   }
 
   async getUser(id: number): Promise<User | undefined> {
